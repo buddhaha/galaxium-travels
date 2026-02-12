@@ -5,12 +5,36 @@ from typing import Optional, Literal
 SeatClass = Literal['economy', 'business', 'galaxium']
 
 
+class FlightQueryParams(BaseModel):
+    """Query parameters for filtering and sorting flights."""
+    # Location filters (case-insensitive partial match)
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    
+    # Date range filters (format: YYYY-MM-DD)
+    departure_date_from: Optional[str] = None
+    departure_date_to: Optional[str] = None
+    
+    # Price range filters
+    min_price: Optional[int] = None
+    max_price: Optional[int] = None
+    
+    # Seat availability filters (at least 1 seat available)
+    has_economy: Optional[bool] = None
+    has_business: Optional[bool] = None
+    has_galaxium: Optional[bool] = None
+    
+    # Sorting
+    sort: Optional[Literal['price', 'departure_time', 'duration']] = None
+    order: Optional[Literal['asc', 'desc']] = 'asc'
+
+
 class FlightOut(BaseModel):
     flight_id: int
     origin: str
     destination: str
-    departure_time: str
-    arrival_time: str
+    departure_time: str  # Format: YYYY-MM-DD HH:MM
+    arrival_time: str    # Format: YYYY-MM-DD HH:MM
     base_price: int  # Economy price (1x)
     economy_seats_available: int
     business_seats_available: int

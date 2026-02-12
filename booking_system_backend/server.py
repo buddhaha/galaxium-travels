@@ -138,9 +138,49 @@ def health_check():
 
 
 @app.get("/flights", response_model=list[FlightOut], tags=["Flights"])
-def get_flights(db: Session = Depends(get_db)):
-    """List all available flights with origin, destination, times, price, and seats available."""
-    return flight.list_flights(db)
+def get_flights(
+    origin: str | None = None,
+    destination: str | None = None,
+    departure_date_from: str | None = None,
+    departure_date_to: str | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    has_economy: bool | None = None,
+    has_business: bool | None = None,
+    has_galaxium: bool | None = None,
+    sort: str | None = None,
+    order: str | None = 'asc',
+    db: Session = Depends(get_db)
+):
+    """List flights with optional filtering and sorting.
+    
+    Query Parameters:
+    - origin: Filter by origin (case-insensitive partial match)
+    - destination: Filter by destination (case-insensitive partial match)
+    - departure_date_from: Minimum departure date (YYYY-MM-DD)
+    - departure_date_to: Maximum departure date (YYYY-MM-DD)
+    - min_price: Minimum economy price
+    - max_price: Maximum economy price
+    - has_economy: Only flights with economy seats available
+    - has_business: Only flights with business seats available
+    - has_galaxium: Only flights with galaxium seats available
+    - sort: Sort by 'price', 'departure_time', or 'duration'
+    - order: Sort order 'asc' or 'desc' (default: asc)
+    """
+    return flight.list_flights(
+        db=db,
+        origin=origin,
+        destination=destination,
+        departure_date_from=departure_date_from,
+        departure_date_to=departure_date_to,
+        min_price=min_price,
+        max_price=max_price,
+        has_economy=has_economy,
+        has_business=has_business,
+        has_galaxium=has_galaxium,
+        sort=sort,
+        order=order
+    )
 
 
 @app.post("/book", response_model=Union[BookingOut, ErrorResponse], tags=["Bookings"])
