@@ -37,10 +37,33 @@ api.interceptors.response.use(
 // ==================== Flight Endpoints ====================
 
 /**
- * Get all available flights
+ * Flight filter parameters
  */
-export const getFlights = async (): Promise<Flight[]> => {
-  const response = await api.get<Flight[]>('/flights');
+export interface FlightFilters {
+  // Phase 1: Core Filters
+  sort_by?: 'departure_time' | 'base_price' | 'duration' | 'seats_available';
+  sort_order?: 'asc' | 'desc';
+  departure_date_from?: string;
+  departure_date_to?: string;
+  min_price?: number;
+  max_price?: number;
+  seat_class?: 'economy' | 'business' | 'galaxium';
+  // Phase 2: Additional Filters
+  departure_time_period?: 'morning' | 'afternoon' | 'evening' | 'night';
+  min_duration?: number;
+  max_duration?: number;
+  min_seats_available?: number;
+  // Phase 3: Popular Routes
+  route_category?: 'inner_planets' | 'outer_planets' | 'moons';
+}
+
+/**
+ * Get all available flights with optional filters
+ */
+export const getFlights = async (filters?: FlightFilters): Promise<Flight[]> => {
+  const response = await api.get<Flight[]>('/flights', {
+    params: filters,
+  });
   return response.data;
 };
 

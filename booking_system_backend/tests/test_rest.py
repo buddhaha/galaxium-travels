@@ -23,8 +23,10 @@ class TestFlightsEndpoint:
             destination="Mars",
             departure_time="2099-01-01T09:00:00Z",
             arrival_time="2099-01-01T17:00:00Z",
-            price=1000000,
-            seats_available=5
+            base_price=1000,
+            economy_seats_available=5,
+            business_seats_available=3,
+            galaxium_seats_available=1
         ))
         db_session.commit()
 
@@ -33,6 +35,187 @@ class TestFlightsEndpoint:
         data = response.json()
         assert len(data) == 1
         assert data[0]["origin"] == "Earth"
+        assert data[0]["destination"] == "Mars"
+
+    def test_get_flights_with_sort_by_price(self, client, db_session):
+        """Test getting flights sorted by price."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=2000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?sort_by=base_price&sort_order=asc")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["base_price"] == 1000
+        assert data[1]["base_price"] == 2000
+
+    def test_get_flights_with_date_filter(self, client, db_session):
+        """Test getting flights with date range filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-15T09:00:00Z", arrival_time="2099-01-15T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?departure_date_from=2099-01-10&departure_date_to=2099-01-20")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Venus"
+
+    def test_get_flights_with_price_filter(self, client, db_session):
+        """Test getting flights with price range filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=500, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=1500, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?min_price=1000&max_price=2000")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["base_price"] == 1500
+
+    def test_get_flights_with_seat_class_filter(self, client, db_session):
+        """Test getting flights with seat class filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=0, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=0, galaxium_seats_available=0
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?seat_class=economy")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Venus"
+
+    def test_get_flights_with_time_period_filter(self, client, db_session):
+        """Test getting flights with time of day filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T08:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-01T14:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?departure_time_period=morning")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Mars"
+
+    def test_get_flights_with_duration_filter(self, client, db_session):
+        """Test getting flights with duration filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T13:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Jupiter",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T21:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?min_duration=5&max_duration=15")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Jupiter"
+
+    def test_get_flights_with_min_seats_filter(self, client, db_session):
+        """Test getting flights with minimum seats filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=1, business_seats_available=1, galaxium_seats_available=0
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=2
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?min_seats_available=5")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Venus"
+
+    def test_get_flights_with_route_category_filter(self, client, db_session):
+        """Test getting flights with route category filter."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Jupiter",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?route_category=inner_planets")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["destination"] == "Mars"
+
+    def test_get_flights_with_combined_filters(self, client, db_session):
+        """Test getting flights with multiple filters combined."""
+        db_session.add(Flight(
+            origin="Earth", destination="Mars",
+            departure_time="2099-01-01T09:00:00Z", arrival_time="2099-01-01T17:00:00Z",
+            base_price=1000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.add(Flight(
+            origin="Earth", destination="Venus",
+            departure_time="2099-01-02T09:00:00Z", arrival_time="2099-01-02T17:00:00Z",
+            base_price=2000, economy_seats_available=5, business_seats_available=3, galaxium_seats_available=1
+        ))
+        db_session.commit()
+
+        response = client.get("/flights?sort_by=base_price&sort_order=asc&min_price=500&max_price=1500&seat_class=economy")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
         assert data[0]["destination"] == "Mars"
 
 

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
 from sqlalchemy.orm import Session
-from typing import Union
+from typing import Union, Optional
 from db import SessionLocal, init_db, get_db
 from seed import seed
 from services import flight, user, booking
@@ -138,9 +138,61 @@ def health_check():
 
 
 @app.get("/flights", response_model=list[FlightOut], tags=["Flights"])
-def get_flights(db: Session = Depends(get_db)):
-    """List all available flights with origin, destination, times, price, and seats available."""
-    return flight.list_flights(db)
+def get_flights(
+    # Phase 1: Core Filters
+    sort_by: str = "departure_time",
+    sort_order: str = "asc",
+    departure_date_from: Optional[str] = None,
+    departure_date_to: Optional[str] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    seat_class: Optional[str] = None,
+    # Phase 2: Additional Filters
+    departure_time_period: Optional[str] = None,
+    min_duration: Optional[int] = None,
+    max_duration: Optional[int] = None,
+    min_seats_available: Optional[int] = None,
+    # Phase 3: Popular Routes
+    route_category: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List all available flights with optional filtering and sorting.
+    
+    All query parameters are optional for backward compatibility.
+    
+    **Phase 1 - Core Filters:**
+    - sort_by: Field to sort by (departure_time, base_price, duration, seats_available)
+    - sort_order: Sort direction (asc, desc)
+    - departure_date_from: Filter flights departing on or after this date (ISO format)
+    - departure_date_to: Filter flights departing on or before this date (ISO format)
+    - min_price: Minimum price (checks economy price)
+    - max_price: Maximum price (checks economy price)
+    - seat_class: Filter by seat class availability (economy, business, galaxium)
+    
+    **Phase 2 - Additional Filters:**
+    - departure_time_period: Time of day (morning, afternoon, evening, night)
+    - min_duration: Minimum flight duration in hours
+    - max_duration: Maximum flight duration in hours
+    - min_seats_available: Minimum total seats available
+    
+    **Phase 3 - Popular Routes:**
+    - route_category: Route category (inner_planets, outer_planets, moons)
+    """
+    return flight.list_flights(
+        db,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        departure_date_from=departure_date_from,
+        departure_date_to=departure_date_to,
+        min_price=min_price,
+        max_price=max_price,
+        seat_class=seat_class,
+        departure_time_period=departure_time_period,
+        min_duration=min_duration,
+        max_duration=max_duration,
+        min_seats_available=min_seats_available,
+        route_category=route_category
+    )
 
 
 @app.post("/book", response_model=Union[BookingOut, ErrorResponse], tags=["Bookings"])
