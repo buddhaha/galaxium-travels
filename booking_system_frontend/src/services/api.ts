@@ -37,10 +37,40 @@ api.interceptors.response.use(
 // ==================== Flight Endpoints ====================
 
 /**
- * Get all available flights
+ * Flight filter parameters
  */
-export const getFlights = async (): Promise<Flight[]> => {
-  const response = await api.get<Flight[]>('/flights');
+export interface FlightFilters {
+  origin?: string;
+  destination?: string;
+  departure_date_from?: string;
+  departure_date_to?: string;
+  min_price?: number;
+  max_price?: number;
+  has_economy?: boolean;
+  has_business?: boolean;
+  has_galaxium?: boolean;
+  sort?: 'price' | 'departure_time' | 'duration';
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * Get all available flights with optional filtering and sorting
+ */
+export const getFlights = async (filters?: FlightFilters): Promise<Flight[]> => {
+  const params = new URLSearchParams();
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, String(value));
+      }
+    });
+  }
+  
+  const queryString = params.toString();
+  const url = queryString ? `/flights?${queryString}` : '/flights';
+  
+  const response = await api.get<Flight[]>(url);
   return response.data;
 };
 
