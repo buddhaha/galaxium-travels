@@ -43,18 +43,14 @@ jobs:
           echo "${{ github.event.issue.body }}" >> /tmp/prompt.md
 
       - name: Run Bob (non-interactive)
-        id: bob
         run: |
-          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)" > /tmp/bob_output.md
         env:
           BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post intake + ADR-001 as comment
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body-file /tmp/bob_output.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

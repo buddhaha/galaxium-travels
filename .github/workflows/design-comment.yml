@@ -93,15 +93,11 @@ jobs:
             > /tmp/prompt.md
 
       - name: Run Bob — ADR-002
-        id: bob_adr002
         if: |
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)" > /tmp/bob_output.md
         env:
           BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
@@ -110,7 +106,7 @@ jobs:
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr002.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body-file /tmp/bob_output.md
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-001-pending" \
             --add-label "design:adr-002-pending"
@@ -137,15 +133,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — ADR-003
-        id: bob_adr003
         if: |
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)" > /tmp/bob_output.md
         env:
           BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
@@ -154,7 +146,7 @@ jobs:
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr003.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body-file /tmp/bob_output.md
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-002-pending" \
             --add-label "design:adr-003-pending"
@@ -193,15 +185,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — generate PLAN.md
-        id: bob_plan
         if: |
           steps.phase.outputs.current == 'adr-003' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)" > /tmp/plan.md
         env:
           BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
@@ -210,14 +198,14 @@ jobs:
           steps.phase.outputs.current == 'adr-003' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          BRANCH="design/issue-${{ github.event.issue.number }}-group-booking"
+          BRANCH="design/issue-${{ github.event.issue.number }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          echo "${{ steps.bob_plan.outputs.output }}" > PLAN.md
+          cp /tmp/plan.md PLAN.md
           git add PLAN.md
-          git commit -m "docs: add PLAN.md for issue #${{ github.event.issue.number }} group booking"
+          git commit -m "docs: add PLAN.md for issue #${{ github.event.issue.number }}"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
