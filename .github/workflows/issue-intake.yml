@@ -1,0 +1,74 @@
+name: Bob — Issue Intake & ADR-001
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+
+    # Only run on issues that look like feature requests or bugs
+    # Remove this filter if you want it to fire on every issue
+    if: |
+      contains(github.event.issue.labels.*.name, 'enhancement') ||
+      contains(github.event.issue.labels.*.name, 'feature') ||
+      contains(toJson(github.event.issue.body), 'Feature:') ||
+      contains(toJson(github.event.issue.body), 'Problem')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bob Shell
+        run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash
+        env:
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+
+      - name: Build intake prompt
+        id: prompt
+        run: |
+          cat .bob/ci-prompts/intake-and-adr001.md \
+            | sed "s|{{ISSUE_NUMBER}}|${{ github.event.issue.number }}|g" \
+            | sed "s|{{ISSUE_TITLE}}|${{ github.event.issue.title }}|g" \
+            > /tmp/prompt.md
+
+          # Append the full issue body
+          echo "" >> /tmp/prompt.md
+          echo "---" >> /tmp/prompt.md
+          echo "## Issue Body" >> /tmp/prompt.md
+          echo "${{ github.event.issue.body }}" >> /tmp/prompt.md
+
+      - name: Run Bob (non-interactive)
+        id: bob
+        run: |
+          BOB_OUTPUT=$(bob --print < /tmp/prompt.md)
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+
+      - name: Post intake + ADR-001 as comment
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob.outputs.output }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Label issue — ADR-001 pending
+        run: |
+          # Ensure labels exist
+          gh label create "design:intake-complete" --color "0075ca" --force 2>/dev/null || true
+          gh label create "design:adr-001-pending" --color "e4e669" --force 2>/dev/null || true
+          gh label create "design:adr-002-pending" --color "e4e669" --force 2>/dev/null || true
+          gh label create "design:adr-003-pending" --color "e4e669" --force 2>/dev/null || true
+          gh label create "design:complete"         --color "0e8a16" --force 2>/dev/null || true
+
+          gh issue edit ${{ github.event.issue.number }} \
+            --add-label "design:intake-complete,design:adr-001-pending"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
