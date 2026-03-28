@@ -28,24 +28,9 @@ jobs:
           node-version: '22'
 
       - name: Install Bob Shell
-        run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm
-
-      - name: Restore Bob credentials
-        run: |
-          mkdir -p ~/.bob
-          echo "${{ secrets.BOB_SETTINGS }}" | base64 -d > ~/.bob/settings.json
-          echo "${{ secrets.BOB_OAUTH_TOKENS }}" | base64 -d > ~/.bob/mcp-oauth-tokens-v2.json
-
-          # Write auth token into the Linux keychain (libsecret)
-          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11
-          eval "$(dbus-launch --sh-syntax)"
-          echo "" | gnome-keyring-daemon --unlock --daemonize --components=secrets
-          echo -n "$BOB_SAFE_STORAGE" | secret-tool store \
-            --label="IBM Bob Safe Storage" \
-            service "IBM Bob Safe Storage" \
-            account "IBM Bob Key"
+        run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm --auth-method api-key
         env:
-          BOB_SAFE_STORAGE: ${{ secrets.BOB_SAFE_STORAGE }}
+          BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Build intake prompt
         run: |
@@ -62,10 +47,12 @@ jobs:
       - name: Run Bob (non-interactive)
         id: bob
         run: |
-          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output "$(cat /tmp/prompt.md)")
+          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output --auth-method api-key "$(cat /tmp/prompt.md)")
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post intake + ADR-001 as comment
         run: |
