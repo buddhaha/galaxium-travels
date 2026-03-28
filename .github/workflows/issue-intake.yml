@@ -51,7 +51,7 @@ jobs:
       - name: Run Bob (non-interactive)
         id: bob
         run: |
-          BOB_OUTPUT=$(bob --print < /tmp/prompt.md)
+          BOB_OUTPUT=$(bob --yolo --accept-license --hide-intermediary-output "$(cat /tmp/prompt.md)")
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
