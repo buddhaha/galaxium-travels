@@ -36,6 +36,17 @@ jobs:
           echo "${{ secrets.BOB_SETTINGS }}" | base64 -d > ~/.bob/settings.json
           echo "${{ secrets.BOB_OAUTH_TOKENS }}" | base64 -d > ~/.bob/mcp-oauth-tokens-v2.json
 
+          # Write auth token into the Linux keychain (libsecret)
+          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11
+          eval "$(dbus-launch --sh-syntax)"
+          echo "" | gnome-keyring-daemon --unlock --daemonize --components=secrets
+          echo -n "$BOB_SAFE_STORAGE" | secret-tool store \
+            --label="IBM Bob Safe Storage" \
+            service "IBM Bob Safe Storage" \
+            account "IBM Bob Key"
+        env:
+          BOB_SAFE_STORAGE: ${{ secrets.BOB_SAFE_STORAGE }}
+
       - name: Build intake prompt
         run: |
           cat .bob/ci-prompts/intake-and-adr001.md \

@@ -44,6 +44,17 @@ jobs:
           echo "${{ secrets.BOB_SETTINGS }}" | base64 -d > ~/.bob/settings.json
           echo "${{ secrets.BOB_OAUTH_TOKENS }}" | base64 -d > ~/.bob/mcp-oauth-tokens-v2.json
 
+          # Write auth token into the Linux keychain (libsecret)
+          sudo apt-get install -y -q libsecret-tools gnome-keyring dbus-x11
+          eval "$(dbus-launch --sh-syntax)"
+          echo "" | gnome-keyring-daemon --unlock --daemonize --components=secrets
+          echo -n "$BOB_SAFE_STORAGE" | secret-tool store \
+            --label="IBM Bob Safe Storage" \
+            service "IBM Bob Safe Storage" \
+            account "IBM Bob Key"
+        env:
+          BOB_SAFE_STORAGE: ${{ secrets.BOB_SAFE_STORAGE }}
+
       # ── Determine current phase from labels ─────────────────
       - name: Detect phase
         id: phase
@@ -99,7 +110,7 @@ jobs:
             > /tmp/prompt.md
 
       - name: Run Bob — ADR-002
-        id: claude_adr002
+        id: bob_adr002
         if: |
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -114,7 +125,7 @@ jobs:
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.claude_adr002.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr002.outputs.output }}"
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-001-pending" \
             --add-label "design:adr-002-pending"
@@ -141,7 +152,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — ADR-003
-        id: claude_adr003
+        id: bob_adr003
         if: |
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -156,7 +167,7 @@ jobs:
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.claude_adr003.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr003.outputs.output }}"
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-002-pending" \
             --add-label "design:adr-003-pending"
@@ -195,7 +206,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — generate PLAN.md
-        id: claude_plan
+        id: bob_plan
         if: |
           steps.phase.outputs.current == 'adr-003' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -215,7 +226,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          echo "${{ steps.claude_plan.outputs.output }}" > PLAN.md
+          echo "${{ steps.bob_plan.outputs.output }}" > PLAN.md
           git add PLAN.md
           git commit -m "docs: add PLAN.md for issue #${{ github.event.issue.number }} group booking"
           git push origin "$BRANCH"
