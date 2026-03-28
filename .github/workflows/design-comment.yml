@@ -41,7 +41,7 @@ jobs:
       - name: Install Bob Shell
         run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm
         env:
-          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       # ── Determine current phase from labels ─────────────────
       - name: Detect phase
@@ -112,7 +112,7 @@ jobs:
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         env:
-          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post ADR-002 + update labels
         if: |
@@ -158,7 +158,7 @@ jobs:
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         env:
-          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post ADR-003 + update labels
         if: |
@@ -215,7 +215,7 @@ jobs:
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         env:
-          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Commit PLAN.md and open PR
         if: |
