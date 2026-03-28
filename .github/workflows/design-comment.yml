@@ -1,4 +1,4 @@
-name: Bob — Design Session Gate
+name: Design Session Gate
 
 on:
   issue_comment:
@@ -13,9 +13,6 @@ jobs:
   gate:
     runs-on: ubuntu-latest
 
-    # Only react to comments on issues (not PRs)
-    # Only react to comments from the repo owner or collaborators
-    # Only react when a design label is active
     if: |
       github.event.issue.pull_request == null &&
       (
@@ -40,8 +37,12 @@ jobs:
 
       - name: Install Bob Shell
         run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
+
+      - name: Restore Bob credentials
+        run: |
+          mkdir -p ~/.bob
+          echo "${{ secrets.BOB_SETTINGS }}" | base64 -d > ~/.bob/settings.json
+          echo "${{ secrets.BOB_OAUTH_TOKENS }}" | base64 -d > ~/.bob/mcp-oauth-tokens-v2.json
 
       # ── Determine current phase from labels ─────────────────
       - name: Detect phase
@@ -50,13 +51,10 @@ jobs:
           LABELS='${{ toJson(github.event.issue.labels.*.name) }}'
           if echo "$LABELS" | grep -q "design:adr-001-pending"; then
             echo "current=adr-001" >> $GITHUB_OUTPUT
-            echo "next=adr-002" >> $GITHUB_OUTPUT
           elif echo "$LABELS" | grep -q "design:adr-002-pending"; then
             echo "current=adr-002" >> $GITHUB_OUTPUT
-            echo "next=adr-003" >> $GITHUB_OUTPUT
           elif echo "$LABELS" | grep -q "design:adr-003-pending"; then
             echo "current=adr-003" >> $GITHUB_OUTPUT
-            echo "next=complete" >> $GITHUB_OUTPUT
           fi
 
       # ── Parse the human's choice (A, B, or C) ──────────────
@@ -66,7 +64,6 @@ jobs:
           COMMENT="${{ github.event.comment.body }}"
           COMMENT_UPPER=$(echo "$COMMENT" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
 
-          # Accept: "A", "B", "C", "Option A", "A with changes: ...", etc.
           if echo "$COMMENT_UPPER" | grep -qE '^A($|[^A-Z])' || echo "$COMMENT" | grep -iqE '^option a'; then
             echo "choice=A" >> $GITHUB_OUTPUT
           elif echo "$COMMENT_UPPER" | grep -qE '^B($|[^A-Z])' || echo "$COMMENT" | grep -iqE '^option b'; then
@@ -77,7 +74,6 @@ jobs:
             echo "choice=UNCLEAR" >> $GITHUB_OUTPUT
           fi
 
-          # Capture any extra context after the choice letter
           EXTRA=$(echo "$COMMENT" | sed 's/^[ABCabc]//' | sed 's/^[[:space:]]*//' | sed 's/^with changes:[[:space:]]*//')
           echo "extra=$EXTRA" >> $GITHUB_OUTPUT
 
@@ -90,7 +86,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── ADR-001 approved → post ADR-002 ─────────────────────
+      # ── Shared helper: call Claude API ──────────────────────
+      # Used by all three ADR steps below
       - name: Build ADR-002 prompt
         if: |
           steps.phase.outputs.current == 'adr-001' &&
@@ -102,7 +99,7 @@ jobs:
             > /tmp/prompt.md
 
       - name: Run Bob — ADR-002
-        id: bob_adr002
+        id: claude_adr002
         if: |
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -111,15 +108,13 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post ADR-002 + update labels
         if: |
           steps.phase.outputs.current == 'adr-001' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr002.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.claude_adr002.outputs.output }}"
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-001-pending" \
             --add-label "design:adr-002-pending"
@@ -132,8 +127,6 @@ jobs:
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          # Read stored ADR-001 decision from issue labels/comments
-          # (We pass it through the prompt template)
           CHOICE_001=$(gh issue view ${{ github.event.issue.number }} \
             --json comments --jq \
             '[.comments[] | select(.body | startswith("✅ ADR-001"))] | last | .body' \
@@ -148,7 +141,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — ADR-003
-        id: bob_adr003
+        id: claude_adr003
         if: |
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -157,15 +150,13 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post ADR-003 + update labels
         if: |
           steps.phase.outputs.current == 'adr-002' &&
           steps.choice.outputs.choice != 'UNCLEAR'
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.bob_adr003.outputs.output }}"
+          gh issue comment ${{ github.event.issue.number }} --body "${{ steps.claude_adr003.outputs.output }}"
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "design:adr-002-pending" \
             --add-label "design:adr-003-pending"
@@ -180,7 +171,6 @@ jobs:
         run: |
           ISSUE_BODY=$(gh issue view ${{ github.event.issue.number }} --json body --jq '.body')
 
-          # Recover previous decisions from comment history
           CHOICE_001=$(gh issue view ${{ github.event.issue.number }} \
             --json comments --jq \
             '[.comments[] | select(.body | startswith("✅ ADR-001"))] | last | .body' \
@@ -205,7 +195,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Bob — generate PLAN.md
-        id: bob_plan
+        id: claude_plan
         if: |
           steps.phase.outputs.current == 'adr-003' &&
           steps.choice.outputs.choice != 'UNCLEAR'
@@ -214,8 +204,6 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Commit PLAN.md and open PR
         if: |
@@ -227,7 +215,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          echo "${{ steps.bob_plan.outputs.output }}" > PLAN.md
+          echo "${{ steps.claude_plan.outputs.output }}" > PLAN.md
           git add PLAN.md
           git commit -m "docs: add PLAN.md for issue #${{ github.event.issue.number }} group booking"
           git push origin "$BRANCH"

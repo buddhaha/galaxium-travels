@@ -12,8 +12,6 @@ jobs:
   intake:
     runs-on: ubuntu-latest
 
-    # Only run on issues that look like feature requests or bugs
-    # Remove this filter if you want it to fire on every issue
     if: |
       contains(github.event.issue.labels.*.name, 'enhancement') ||
       contains(github.event.issue.labels.*.name, 'feature') ||
@@ -31,18 +29,20 @@ jobs:
 
       - name: Install Bob Shell
         run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
+
+      - name: Restore Bob credentials
+        run: |
+          mkdir -p ~/.bob
+          echo "${{ secrets.BOB_SETTINGS }}" | base64 -d > ~/.bob/settings.json
+          echo "${{ secrets.BOB_OAUTH_TOKENS }}" | base64 -d > ~/.bob/mcp-oauth-tokens-v2.json
 
       - name: Build intake prompt
-        id: prompt
         run: |
           cat .bob/ci-prompts/intake-and-adr001.md \
             | sed "s|{{ISSUE_NUMBER}}|${{ github.event.issue.number }}|g" \
             | sed "s|{{ISSUE_TITLE}}|${{ github.event.issue.title }}|g" \
             > /tmp/prompt.md
 
-          # Append the full issue body
           echo "" >> /tmp/prompt.md
           echo "---" >> /tmp/prompt.md
           echo "## Issue Body" >> /tmp/prompt.md
@@ -55,8 +55,6 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$BOB_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          API_KEY: ${{ secrets.BOB_API_KEY }}
 
       - name: Post intake + ADR-001 as comment
         run: |
@@ -66,7 +64,6 @@ jobs:
 
       - name: Label issue — ADR-001 pending
         run: |
-          # Ensure labels exist
           gh label create "design:intake-complete" --color "0075ca" --force 2>/dev/null || true
           gh label create "design:adr-001-pending" --color "e4e669" --force 2>/dev/null || true
           gh label create "design:adr-002-pending" --color "e4e669" --force 2>/dev/null || true
