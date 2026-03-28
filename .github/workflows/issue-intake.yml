@@ -28,9 +28,7 @@ jobs:
           node-version: '22'
 
       - name: Install Bob Shell
-        run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm --auth-method api-key
-        env:
-          BOBSHELL_API_KEY: ${{ secrets.BOB_API_KEY }}
+        run: curl -fsSL https://bob.ibm.com/download/bobshell.sh | bash -s -- --pm npm
 
       - name: Build intake prompt
         run: |
