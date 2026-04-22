@@ -55,7 +55,7 @@ cd booking_system_backend
 # Check if virtual environment exists, create if not
 if [ ! -d ".venv" ]; then
     echo "Creating Python virtual environment..."
-    python3 -m venv .venv
+    python3.11 -m venv .venv
 fi
 
 # Activate virtual environment and install dependencies
