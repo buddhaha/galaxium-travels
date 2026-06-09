@@ -2,42 +2,37 @@
 
 This file provides guidance to agents when working with code in this repository.
 
-## Critical Non-Obvious Patterns
+## Test Execution
+- **CRITICAL**: Tests MUST be run from `booking_system_backend/` directory, not project root
+- Running from root causes `conftest.py` import failures
+- Single test: `cd booking_system_backend && pytest tests/test_services.py::test_function_name`
 
-**MCP Server Initialization:**
-- MCP server (`mcp = FastMCP(...)`) MUST be created BEFORE FastAPI app to properly combine lifespans (see server.py:14-16)
-- MCP tools raise exceptions on error; REST routes return `Union[ModelOut, ErrorResponse]` (no exceptions)
+## Service Layer Pattern
+- All service functions return `ModelOut | ErrorResponse` - NEVER raise exceptions
+- MCP tools manually manage sessions: `db = SessionLocal()` with try/finally blocks
+- REST endpoints use FastAPI dependency injection: `db: Session = Depends(get_db)`
+- Email addresses auto-normalized to lowercase in user service (case-insensitive lookups)
 
-**Database Sessions:**
-- MCP tools manually manage sessions (`SessionLocal()` + try/finally)
-- REST routes use dependency injection (`Depends(get_db)`)
-- Tests override `SessionLocal` via monkeypatch AND `app.dependency_overrides` (both required, see conftest.py:49-62)
+## Database Operations
+- Seat counters updated in service layer functions, not via DB triggers
+- No cascade deletes - bookings don't auto-delete when flights/users deleted
+- SQLite file: `booking.db` in backend directory (delete to reset with seed data)
 
-**Seat Class Pricing:**
-- Price multipliers in `services/booking.py:8-12` (economy: 1.0, business: 2.5, galaxium: 5.0)
-- `base_price` on Flight model is economy price; other classes calculated at booking time
-- Seat availability tracked separately: `economy_available`, `business_available`, `galaxium_available`
+## MCP Integration
+- MCP server MUST be created before FastAPI app (line 16 before line 118 in server.py)
+- Required for proper lifespan combination
+- MCP mounted at `/mcp` endpoint after FastAPI app creation
 
-**Testing:**
-- Run single test: `cd booking_system_backend && pytest tests/test_services.py::test_function_name -v`
-- Tests use in-memory SQLite with `StaticPool` (not file-based)
-- `seed()` is monkeypatched to no-op during tests (conftest.py:53)
+## Pricing System
+- Hardcoded multipliers in `services/booking.py:8-12`: economy=1.0, business=2.5, galaxium=5.0
+- Integer pricing: `int(base_price * multiplier)` - no decimal handling
+- Seat class validation uses Literal type: must be exact strings 'economy', 'business', 'galaxium'
 
-**Server Startup:**
-- Backend runs on port 8080 (not 8000 as typical FastAPI default)
-- `start.sh` uses Python 3.11 specifically and creates `.venv` if missing
-- Backend logs to `backend.log` (deleted on cleanup)
+## Frontend API Integration
+- Vite proxy rewrites `/api/*` to backend (removes `/api` prefix)
+- API base URL: `import.meta.env.VITE_API_URL || '/api'`
+- Error responses have `success: false` field for type guard checking
 
-**Type Checking:**
-- Pyright disabled globally (`pyrightconfig.json`) - project uses runtime validation via Pydantic v2
-
-## SDLC Workflow Rules
-
-This project uses Bob's structured human-in-the-loop workflow:
-
-1. **Never commit without explicit human approval** in the current session
-2. **Never push to remote** without explicit human approval
-3. **Never create PRs or GitHub comments** autonomously
-4. **One PLAN.md task at a time** — no scope creep between tasks
-5. **Always show the diff** before staging anything
-6. **PLAN.md is the contract** — do not deviate without asking
+## Startup
+- `start.sh` creates venv if missing, kills existing processes on ports 8080/5173
+- Backend uses `.venv/bin/python` directly (not system python) after venv activation
